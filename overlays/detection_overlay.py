@@ -1,5 +1,6 @@
 import io
 from PIL import Image, ImageDraw, ImageFont
+import tensorflow as tf
 
 
 default_color = 'blue'
@@ -11,9 +12,9 @@ class DetectionOverlay:
   def __init__(self, args):
     self.args = args
     self.labels_to_highlight = args.labels_to_highlight.split(";")
-    self.font = ImageFont.truetype("./fonts/OpenSans-Regular.ttf", 12)
+    self.font = ImageFont.load_default()
 
-  def apply_overlay(self, image_bytes, feature):
+  def apply_overlay(self, sess, image_bytes, feature, img_width, img_height):
     """Apply annotation overlay over input image.
     
     Args:
@@ -24,12 +25,12 @@ class DetectionOverlay:
       image_bytes_with_overlay: JPEG image with annotation overlay.
     """
 
-    bboxes = self.get_bbox_tuples(feature)
-    image_bytes_with_overlay = self.draw_bboxes(image_bytes, bboxes)
+    bboxes = self.get_bbox_tuples(sess, feature)
+    image_bytes_with_overlay = self.draw_bboxes(image_bytes, bboxes, img_width, img_height)
     return image_bytes_with_overlay
 
 
-  def get_bbox_tuples(self, feature):
+  def get_bbox_tuples(self, sess, feature):
     """ From a TF Record Feature, get a list of tuples representing bounding boxes
     
     Args:
@@ -39,13 +40,17 @@ class DetectionOverlay:
     """
     bboxes = []
     if self.args.bbox_name_key in feature:
-      for ibbox, label in enumerate (feature[self.args.bbox_name_key].bytes_list.value):
-        bboxes.append( (label.decode("utf-8"),
-                        feature[self.args.bbox_xmin_key].float_list.value[ibbox],
-                        feature[self.args.bbox_xmax_key].float_list.value[ibbox],
-                        feature[self.args.bbox_ymin_key].float_list.value[ibbox],
-                        feature[self.args.bbox_ymax_key].float_list.value[ibbox]
-      ) )
+      gtboxes_and_label = tf.decode_raw(feature[self.args.bbox_name_key].bytes_list.value[0], tf.int32)
+      with sess.as_default():
+        gtboxes_and_label = tf.reshape(gtboxes_and_label, [-1, 5]).eval()
+      for bbox in gtboxes_and_label:
+        bboxes.append((
+          bbox[0],  # xmin
+          bbox[1],  # ymin
+          bbox[2],  # xmax
+          bbox[3],  # ymax
+          bbox[4],  # label
+        ))
     else:
       print("Bounding box key '%s' not present." % (self.args.bbox_name_key))
     return bboxes
@@ -73,10 +78,10 @@ class DetectionOverlay:
     if self.args.coordinates_in_pixels:
       return bbox
     else:
-      label, xmin, xmax, ymin, ymax = bbox
-      return [label, xmin * im_width, xmax * im_width, ymin * im_height, ymax * im_height]
+      xmin, ymin, xmax, ymax, label = bbox
+      return [xmin * im_width, ymin * im_height, xmax * im_width, ymax * im_height, label]
 
-  def draw_bboxes(self, image_bytes, bboxes):
+  def draw_bboxes(self, image_bytes, bboxes, img_width, img_height):
     """Draw bounding boxes onto image.
     
     Args:
@@ -86,14 +91,19 @@ class DetectionOverlay:
     Returns:
       image_bytes: JPEG image including bounding boxes.
     """
-    img = Image.open(io.BytesIO(image_bytes))
+    img = Image.frombytes('RGB', (img_width, img_height), image_bytes, 'raw')
+    # image.show()
+
+    # img = Image.open(io.BytesIO(image_bytes))
 
     draw = ImageDraw.Draw(img)
 
     width, height = img.size
 
     for bbox in bboxes:
-      label, xmin, xmax, ymin, ymax = self.bboxes_to_pixels(bbox, width, height)
+      # xmin, ymin, xmax, ymax, label = self.bboxes_to_pixels(bbox, width, height)
+      xmin, ymin, xmax, ymax, label = bbox
+      label = str(label)
       draw.rectangle([xmin, ymin, xmax, ymax], outline=self.bbox_color(label))
 
       w, h = self.font.getsize(label)
