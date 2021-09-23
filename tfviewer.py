@@ -8,8 +8,6 @@ from flask import Flask, render_template, send_file
 
 from overlays import overlay_factory
 
-ROTATE = False
-
 app = Flask(__name__)
 
 parser = argparse.ArgumentParser(description='TF Record viewer.')
@@ -100,7 +98,7 @@ def preload_images(max_images):
                 img = feat[args.image_key].bytes_list.value[0]
 
                 img_width, img_height = feat['img_width'].int64_list.value[0], feat['img_height'].int64_list.value[0]
-                img_with_overlay = overlay.apply_overlay(sess, img, feat, img_width, img_height)
+                img_with_overlay = overlay.apply_overlay(ROTATE, sess, img, feat, img_width, img_height)
 
                 filenames.append(filename)
                 images.append(img_with_overlay)
@@ -145,8 +143,10 @@ def add_header(r):
 
 
 if __name__ == "__main__":
+    ROTATE = True
+    args.LABEL_DICT = 'ROOF'
+
     print("Pre-loading up to %d examples.." % args.max_images)
     count = preload_images(args.max_images)
     print("Loaded %d examples" % count)
     app.run(host=args.host, port=args.port)
-
