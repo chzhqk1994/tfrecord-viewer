@@ -145,8 +145,12 @@ def add_header(r):
 
 if __name__ == "__main__":
     tfrecord_path = '/Users/shawn/project/dataset/tfrecord_robndbox/ROOF_test.tfrecord'
-    ROTATE = True
+    # PASCAL, ROOF, COCO
     args.LABEL_DICT = 'ROOF'
+    # Rotate RCNN?
+    ROTATE = True
+    # Num of image
+    args.max_images = 1000
 
     print("Pre-loading up to %d examples.." % args.max_images)
     count = preload_images(tfrecord_path, args.max_images)

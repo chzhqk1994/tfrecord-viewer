@@ -2,7 +2,8 @@ import io
 from PIL import Image, ImageDraw, ImageFont
 from label_dict import get_label_dict
 import tensorflow as tf
-
+import numpy as np
+import cv2
 default_color = 'blue'
 highlight_color = 'red'
 
@@ -118,6 +119,10 @@ class DetectionOverlay:
         img = Image.frombytes('RGB', (img_width, img_height), image_bytes, 'raw')
         # image.show()
 
+        if ROTATE:
+            cv_img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+            img = Image.fromarray(cv_img)
+
         # img = Image.open(io.BytesIO(image_bytes))
 
         draw = ImageDraw.Draw(img)
@@ -154,8 +159,8 @@ class DetectionOverlay:
                 draw.text((xmin + 4, ymin), label, fill=self.bbox_color(label), font=self.font)
 
         with io.BytesIO() as output:
-            # if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
             img.save(output, format="JPEG")
             output_image = output.getvalue()
         return output_image
