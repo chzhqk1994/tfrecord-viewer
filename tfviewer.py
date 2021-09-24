@@ -11,7 +11,7 @@ from overlays import overlay_factory
 app = Flask(__name__)
 
 parser = argparse.ArgumentParser(description='TF Record viewer.')
-parser.add_argument('tfrecords', type=str, nargs='+',
+parser.add_argument('--tfrecords', type=str,
                     help='path to TF record(s) to view')
 
 parser.add_argument('--image-key', type=str, default="img",
@@ -65,7 +65,8 @@ captions = []
 bboxes = []
 
 
-def preload_images(max_images):
+def preload_images(tfrecord_path, max_images):
+    args.tfrecords = [tfrecord_path]
     sess = tf.InteractiveSession()
 
     """
@@ -143,10 +144,11 @@ def add_header(r):
 
 
 if __name__ == "__main__":
+    tfrecord_path = '/Users/shawn/project/dataset/tfrecord_robndbox/ROOF_test.tfrecord'
     ROTATE = True
     args.LABEL_DICT = 'ROOF'
 
     print("Pre-loading up to %d examples.." % args.max_images)
-    count = preload_images(args.max_images)
+    count = preload_images(tfrecord_path, args.max_images)
     print("Loaded %d examples" % count)
     app.run(host=args.host, port=args.port)
